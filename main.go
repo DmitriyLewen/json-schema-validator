@@ -3,23 +3,36 @@ package main
 import (
 	"fmt"
 	"github.com/xeipuuv/gojsonschema"
+	"os"
 )
 
 func main() {
-	schemaLoader := gojsonschema.NewReferenceLoader("file://./schemas/bom-1.5.schema.json")
-	documentLoader := gojsonschema.NewReferenceLoader("file://./ubuntu2204.cdx.json")
+	schemaFilePath := fmt.Sprintf("file://%s", os.Args[1])
+	docFilePath := fmt.Sprintf("file://%s", os.Args[2])
+
+	if err := Validate(schemaFilePath, docFilePath); err != nil {
+		fmt.Println(err)
+	}
+
+}
+
+func Validate(schemaFilePath, docFilePath string) error {
+	schemaLoader := gojsonschema.NewReferenceLoader(schemaFilePath)
+	documentLoader := gojsonschema.NewReferenceLoader(docFilePath)
 
 	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
 	if err != nil {
-		panic(err.Error())
+		return fmt.Errorf("failed to validate: %w", err)
 	}
 
 	if result.Valid() {
-		fmt.Printf("The document is valid\n")
-	} else {
-		fmt.Printf("The document is not valid. see errors :\n")
-		for _, desc := range result.Errors() {
-			fmt.Printf("- %s\n", desc)
-		}
+		return nil
 	}
+
+	errSummary := fmt.Sprintf("encountered %d validation errors:", len(result.Errors()))
+	for _, verr := range result.Errors() {
+		errSummary += fmt.Sprintf("\n  - %s", verr.String())
+	}
+
+	return fmt.Errorf(errSummary)
 }
